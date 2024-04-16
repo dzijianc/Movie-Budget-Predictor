@@ -57,6 +57,18 @@ def same_shot(img_1, img_2, size):
         LAST_FRAME_HIST = img_2_hist
     return SD
 
+def get_budget_label(budget):
+    if budget < 1_000_000:
+        return 0
+    elif 1_000_000 <= budget <= 10_000_000:
+        return 1
+    elif 10_000_000 <= budget <= 25_000_000:
+        return 2
+    elif 25_000_000 <= budget <= 50_000_000:
+        return 3
+    else:
+        return 4
+
 
 def shot_detection(csvfile, threshold):
     file = pd.read_csv(csvfile)
@@ -64,7 +76,7 @@ def shot_detection(csvfile, threshold):
     movie_links = file['link']
     data = {'filename': [], 'budget': []}
 
-    for i in range(1):
+    for i in range(len(movie_links)):
         frames = []
         budget = movie_budgets[i]
         link = movie_links[i]
@@ -81,7 +93,7 @@ def shot_detection(csvfile, threshold):
         print("Movie frames saved")
 
         shot_start = 0
-        for j in range(1000):
+        for j in range(len(frames) - 1):
             cur_frame = frames[j]
             next_frame = frames[j + 1]
             SD = same_shot(cur_frame, next_frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
@@ -89,15 +101,15 @@ def shot_detection(csvfile, threshold):
                 shot_end = j + 1
                 idx = np.random.randint(shot_start, shot_end)
                 selected_shot = frames[idx]
-                filename = "test/movie%d_frame%d.jpg" % (i, idx)
+                filename = "test2/movie%d_frame%d.jpg" % (i, idx)
                 cv2.imwrite(filename, selected_shot)
                 shot_start = shot_end
 
                 data['filename'].append(filename)
-                data['budget'].append(budget)
+                data['budget'].append(get_budget_label(budget))
         
-    # df = pd.DataFrame(data)
-    # df.to_csv("test2.csv", index=False, mode='w')
+    df = pd.DataFrame(data)
+    df.to_csv("test2.csv", index=False, mode='w')
 
 # def shot_detection(vid_link, threshold):
 #     frames = []
