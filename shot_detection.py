@@ -54,52 +54,42 @@ def shot_detection(csvfile, threshold):
     file = pd.read_csv(csvfile)
     movie_budgets = file['budget']
     movie_links = file['link']
+    data = {'filename': [], 'budget': []}
 
     for i in range(1):
-        data = {'filename': [], 'budget': []}
+        frames = []
         budget = movie_budgets[i]
         link = movie_links[i]
-        shot_start = 0
-        shot_end = None
-
+        shot_end = 0
+        # Get all the movie frames
+        link = movie_links[i]
         vidcap = cv2.VideoCapture(link)
-        count = 0
         success,image = vidcap.read()
-        if success:
-            cv2.imwrite("test/movie%d_frame%d.jpg" % (i, count), image)
-            count += 1
-            frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            success,image = vidcap.read()
-        else:
-            break
-
         while success:
-            prev_frame = frame
             frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            cv2.imwrite("test/movie%d_frame%d.jpg" % (i, count), image) # save frame as JPEG file      
-            SD = same_shot(prev_frame, frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
-            # Shot boundary detected
+            frames.append(frame)
+            success,image = vidcap.read()
+
+        print("Movie frames saved")
+
+        shot_start = 0
+        for j in range(len(frames) - 1):
+            cur_frame = frames[j]
+            next_frame = frames[j + 1]
+            SD = same_shot(cur_frame, next_frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
             if SD > threshold:
-                shot_end = count
-                print(shot_start, shot_end)
+                shot_end = j + 1
                 idx = np.random.randint(shot_start, shot_end)
+                selected_shot = frames[idx]
                 filename = "test/movie%d_frame%d.jpg" % (i, idx)
-                selected_shot = cv2.imread(filename)
                 cv2.imwrite(filename, selected_shot)
+                shot_start = shot_end
+
                 data['filename'].append(filename)
                 data['budget'].append(budget)
-                shot_start = shot_end
-                
-
-            success,image = vidcap.read()
-            # print('Read a new frame: ', success)
-            count += 1
-
-            if count == 100:
-                break
         
-        df = pd.DataFrame(data)
-        df.to_csv("test2.csv", index=False, mode='a')
+    # df = pd.DataFrame(data)
+    # df.to_csv("test2.csv", index=False, mode='w')
 
 # def shot_detection(vid_link, threshold):
 #     frames = []
