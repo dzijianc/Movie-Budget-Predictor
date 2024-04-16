@@ -27,7 +27,7 @@ def get_genre_n_pages(genre, n=1):  # default is ==1 which means 50 entries
         print('Status Code:', response.status_code)
         raise Exception('Failed to get web page' + genre_url)
 
-    doc = BeautifulSoup(response.text)
+    doc = BeautifulSoup(response.text, 'html.parser')
 
     return doc
 
@@ -69,6 +69,7 @@ def get_budget(movie_soup):
 def get_trailer_link(movie_soup):
     try:
         official_trailer = movie_soup.find('a', {'aria-label': 'TrailerOfficial Trailer'})
+        # Select the trailer at the top of the page
         if official_trailer is None:
             link = movie_soup.find('script', {'type': 'application/json'})
             json_ob = json.loads(link.string)
@@ -92,87 +93,28 @@ def get_trailer_link(movie_soup):
         return None
 
 
-LAST_FRAME_HIST = []
+genres = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
+          'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror',
+          'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Short',
+          'Sport', 'Thriller', 'War', 'Western']
 
-
-# TODO: MAKE THRESHOLD 0.02 BUT REMOVE VERY CLOSE SCENE CHANGES
-
-def shot_detection_array_given(vid_array, threshold):
-    lines = []
-    shot_change = []
-    for i in range(len(vid_array) - 1):  # Compare frame to the next one, so one less range
-        frame = vid_array[i]
-        next_frame = vid_array[i + 1]
-        SD = same_shot(frame, next_frame, 10)  # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
-        if SD > threshold:
-            shot_change.append(i + 1)
-
-    return shot_change
-
-
-def same_shot(img_1, img_2, size):
-    global LAST_FRAME_HIST
-    if len(LAST_FRAME_HIST) == 0:
-        img_1_g = np.dot(img_1[..., :3], [0.299, 0.587, 0.114])
-        img_2_g = np.dot(img_2[..., :3], [0.299, 0.587, 0.114])
-
-        img_1_hist = intensity_hist(img_1_g, size)
-        img_2_hist = intensity_hist(img_2_g, size)
-
-        SD = 0
-        for i in range(size):
-            SD += abs(img_1_hist[i] - img_2_hist[i])
-
-        height, width = len(img_2_g), len(img_2_g[0])
-        SD = SD / (size * height * width)
-        LAST_FRAME_HIST = img_2_hist
-    else:
-        img_2_g = np.dot(img_2[..., :3], [0.299, 0.587, 0.114])
-        img_2_hist = intensity_hist(img_2_g, size)
-        SD = 0
-        for i in range(size):
-            SD += abs(LAST_FRAME_HIST[i] - img_2_hist[i])
-        height, width = len(img_2_g), len(img_2_g[0])
-        SD = SD / (size * height * width)
-        LAST_FRAME_HIST = img_2_hist
-    return SD
-
-
-def get_shot_image_indices(vid_array, threshold):
-    shot_changes = shot_detection_array_given(vid_array, threshold)
-
-    images_i = []
-    shot_start = 0  # TODO: Remove start and end of trailer cuz of title cards and production companies n stuff
-    for i in range(len(shot_changes)):
-        images_i.append(numpy.random.randint(shot_start, shot_changes[i]))
-        shot_start = shot_changes[i]
-    return shot_changes
-
-
-def get_training_data_shot_frames():
-    genres = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
-              'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror',
-              'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Short',
-              'Sport', 'Thriller', 'War', 'Western']
-
-    # Randomize selected genres
-    # selected_genres = random.sample([_ for _ in range(len(genres))], 10)
-    selected_genres = [10, 15, 12, 1, 19, 0, 3, 9, 6, 11]
+# Randomize selected genres
+# selected_genres = random.sample([_ for _ in range(len(genres))], 10)
+selected_genres = [10, 15, 12, 1, 19, 0, 3, 9, 6, 11]
+def get_training_data():
     with open('test.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         fields = ['genres', 'budget', 'link']
         writer.writerow(fields)
-        image_id = 0
 
         # Select movies from each genre
         for i in selected_genres:
             genre = genres[i]
             doc1 = get_genre_n_pages(genre=genre, n=1)
-            movie_tags = doc1.find_all('li', class_='ipc-metadata-list-summary-item')
+            movie_tags = doc1.find_all('li', class_ = 'ipc-metadata-list-summary-item')
 
             found_movie = False
             j = 0
-            text_file_lines = ["id, budget, genre"]
             while (not found_movie):
                 imdb_url = 'https://www.imdb.com'
                 a_tag = movie_tags[j].find('a')
@@ -185,39 +127,21 @@ def get_training_data_shot_frames():
                 movie_trailer = get_trailer_link(page)
                 if movie_budget != None and movie_trailer != None:
                     found_movie = True
+                    writer.writerow([movie_genres, movie_budget, movie_trailer])
 
-                    frames = []
-                    cap = cv2.VideoCapture(movie_trailer)
-                    ret = True
-                    while ret:
-                        ret, img = cap.read()  # read one frame from the 'capture' object; img is (H, W, C)
-                        if ret:
-                            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                            frames.append(img)
-                    video = np.stack(frames, axis=0)  # dimensions (T, H, W, C)
-                    image_indices = get_shot_image_indices(video, 0.05)
-                    for index in image_indices:
-                        image_id += 1
-                        im = Image.fromarray(image_indeces[index])
-                        im.save("images/%d.jpeg" % (image_id))  # Just uses an id number so no duplicates
-                        text_file_lines.append("%d, %d, %s\n" % (image_id, movie_budget, genres[i]))
-
+                    # vidcap = cv2.VideoCapture(movie_trailer)
+                    # success,image = vidcap.read()
+                    # count = 0
+                    # while success:
+                    #     cv2.imwrite("test/movie%d_frame%d.jpg" % (i, count), image)     # save frame as JPEG file      
+                    #     success,image = vidcap.read()
+                    #     print('Read a new frame: ', success)
+                    #     count += 1
+                    #     success = False
+                
                 j += 1
-                print(movie_genres, movie_budget, movie_trailer, '\n')
-        with open('image_to_movie_dict.txt', 'w') as f:
-            f.writelines(text_file_lines)
+                # print(movie_genres, movie_budget, movie_trailer, '\n')
     file.close()
 
-def intensity_hist(img, size):
-    dist = [0] * size
-    max_i = 0
-    min_i = 255
-    for i in range(len(img)):
-        for j in range(len(img[i])):
-            dist_index = int(img[i][j] // (255.1 / size))
-            dist[dist_index] += 1
-            max_i = max(max_i, img[i][j])
-            min_i = min(min_i, img[i][j])
-    return dist
-
-a = get_training_data_shot_frames()
+if __name__ == '__main__':
+    get_training_data()
