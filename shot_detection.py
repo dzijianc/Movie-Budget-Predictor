@@ -10,16 +10,24 @@ import pandas as pd
 LAST_FRAME_HIST = []
 #TODO: MAKE THRESHOLD 0.02 BUT REMOVE VERY CLOSE SCENE CHANGES
 def intensity_hist(img, size):
-    dist = [0] * size
-    max_i = 0
-    min_i = 255
-    for i in range(len(img)):
-        for j in range(len(img[i])):
-            dist_index = int(img[i][j] // (255.1 / size))
-            dist[dist_index] += 1
-            max_i = max(max_i, img[i][j])
-            min_i = min(min_i, img[i][j])
-    return dist
+    # print(img.shape)
+    # print(len(img))
+    # dist = [0] * size
+    # max_i = 0
+    # min_i = 255
+    # for i in range(len(img)):
+    #     for j in range(len(img[i])):
+    #         dist_index = int(img[i][j] // (255.1 / size))
+    #         dist[dist_index] += 1
+    #         max_i = max(max_i, img[i][j])
+    #         min_i = min(min_i, img[i][j])
+
+    dist2 = [0] * size
+    dist_index2 = (img // (255.1 / size)).astype(int).flatten()
+    # print(dist_index2.shape)
+    bc = np.bincount(dist_index2)
+    dist2[:len(bc)] += bc
+    return dist2
 
 
 def same_shot(img_1, img_2, size):
@@ -73,7 +81,7 @@ def shot_detection(csvfile, threshold):
         print("Movie frames saved")
 
         shot_start = 0
-        for j in range(len(frames) - 1):
+        for j in range(1000):
             cur_frame = frames[j]
             next_frame = frames[j + 1]
             SD = same_shot(cur_frame, next_frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
