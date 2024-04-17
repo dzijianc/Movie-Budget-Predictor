@@ -87,7 +87,6 @@ def get_trailer_link(movie_soup):
         json_ob = json.loads(link.string)
         videos = json_ob["props"]["pageProps"]["videoPlaybackData"]["video"]["playbackURLs"]
         url = videos[1]['url']
-        urllib.request.urlretrieve(url, 'test.mp4')
         return url
     except (IndexError, ValueError):
         return None
@@ -100,9 +99,9 @@ genres = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
 
 # Randomize selected genres
 # selected_genres = random.sample([_ for _ in range(len(genres))], 10)
-selected_genres = [10, 15, 12, 1, 19, 0, 3, 9, 6, 11]
+selected_genres = [10, 15, 12, 1, 19, 0, 3, 9, 7, 11]
 def get_training_data():
-    with open('test.csv', 'w', newline='') as file:
+    with open('imdb_data.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         fields = ['genres', 'budget', 'link']
         writer.writerow(fields)
@@ -110,12 +109,12 @@ def get_training_data():
         # Select movies from each genre
         for i in selected_genres:
             genre = genres[i]
-            doc1 = get_genre_n_pages(genre=genre, n=1)
+            doc1 = get_genre_n_pages(genre=genre, n=2)
             movie_tags = doc1.find_all('li', class_ = 'ipc-metadata-list-summary-item')
 
-            found_movie = False
+            found_movie = 0
             j = 0
-            while (not found_movie):
+            while (found_movie < 2):
                 imdb_url = 'https://www.imdb.com'
                 a_tag = movie_tags[j].find('a')
                 href_full = a_tag['href']
@@ -126,21 +125,10 @@ def get_training_data():
                 movie_budget = get_budget(page)
                 movie_trailer = get_trailer_link(page)
                 if movie_budget != None and movie_trailer != None:
-                    found_movie = True
+                    found_movie += 1
                     writer.writerow([movie_genres, movie_budget, movie_trailer])
-
-                    # vidcap = cv2.VideoCapture(movie_trailer)
-                    # success,image = vidcap.read()
-                    # count = 0
-                    # while success:
-                    #     cv2.imwrite("test/movie%d_frame%d.jpg" % (i, count), image)     # save frame as JPEG file      
-                    #     success,image = vidcap.read()
-                    #     print('Read a new frame: ', success)
-                    #     count += 1
-                    #     success = False
                 
                 j += 1
-                # print(movie_genres, movie_budget, movie_trailer, '\n')
     file.close()
 
 if __name__ == '__main__':
