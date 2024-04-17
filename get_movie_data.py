@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import json
 import random
 import csv
+import pandas as pd
 
 def get_genre_n_pages(genre, n=1):  # default is ==1 which means 50 entries
     headers = {
@@ -135,6 +136,13 @@ def get_movie_data(num_of_movies):
 
 if __name__ == '__main__':
     get_movie_data(num_of_movies=30)
+
+    file = pd.read_csv('imdb_data.csv')
+    train = file.sample(frac=0.9)
+    test = file.loc[~file.index.isin(train.index)]
+
+    train.to_csv("train_movies.csv", index=False)
+    test.to_csv("test_movies.csv", index=False)
 
 
     
