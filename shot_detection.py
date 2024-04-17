@@ -7,6 +7,7 @@ from scipy.ndimage import correlate as corr
 from scipy.ndimage import gaussian_filter as gaus
 import pandas as pd
 import time
+import ast
 
 LAST_FRAME_HIST = []
 #TODO: MAKE THRESHOLD 0.02 BUT REMOVE VERY CLOSE SCENE CHANGES
@@ -25,7 +26,6 @@ def intensity_hist(img, size):
 
     dist2 = [0] * size
     dist_index2 = (img // (255.1 / size)).astype(int).flatten()
-    # print(dist_index2.shape)
     bc = np.bincount(dist_index2)
     dist2[:len(bc)] += bc
     return dist2
@@ -70,17 +70,31 @@ def get_budget_label(budget):
     else:
         return 4
 
+def get_genre_label(genres):
+    all_genres = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
+                'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror',
+                'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Short',
+                'Sport', 'Thriller', 'War', 'Western']
+    
+    ret = [0] * len(all_genres)
+    for genre in genres:
+        i = all_genres.index(genre)
+        ret[i] = 1
+    return ret
 
 def shot_detection(csvfile, threshold):
     file = pd.read_csv(csvfile)
     movie_budgets = file['budget']
     movie_links = file['link']
-    data = {'filename': [], 'budget': []}
+    movie_genres = file['genres']
+    data = {'filename': [], 'budget': [], 'genres': []}
 
     for i in range(len(movie_links)):
         frames = []
-        budget = movie_budgets[i]
+        budget = get_budget_label(movie_budgets[i])
         link = movie_links[i]
+        genres = get_genre_label(ast.literal_eval(movie_genres[i]))
+
         shot_end = 0
         # Get all the movie frames
         link = movie_links[i]
@@ -90,54 +104,57 @@ def shot_detection(csvfile, threshold):
             frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             frames.append(frame)
             success,image = vidcap.read()
+        print("All movie frames read.")
 
-        print("Movie frames saved")
-
+        last_frame = -1
         shot_start = 0
         for j in range(len(frames) - 1):
             cur_frame = frames[j]
             next_frame = frames[j + 1]
             SD = same_shot(cur_frame, next_frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
             if SD > threshold:
-                shot_end = j + 1
-                idx = np.random.randint(shot_start, shot_end)
-                selected_shot = frames[idx]
-                filename = "test2/movie%d_frame%d.jpg" % (i, idx)
-                cv2.imwrite(filename, selected_shot)
-                shot_start = shot_end
+                if (last_frame == -1 or j - last_frame > 10):
+                    shot_end = j + 1
+                    idx = np.random.randint(shot_start, shot_end)
+                    selected_shot = frames[idx]
+                    filename = "selected_frames/movie%d_frame%d.jpg" % (i, idx)
+                    cv2.imwrite(filename, selected_shot)
+                    shot_start = shot_end
 
-                data['filename'].append(filename)
-                data['budget'].append(get_budget_label(budget))
+                    data['filename'].append(filename)
+                    data['budget'].append(budget)
+                    data['genres'].append(genres)
+                last_frame = j
         
     df = pd.DataFrame(data)
-    df.to_csv("test2.csv", index=False, mode='w')
+    df.to_csv("training_data.csv", index=False, mode='w')
 
-def shot_detection1(vid_link, threshold):
-    frames = []
+# def shot_detection1(vid_link, threshold):
+#     frames = []
 
-    cap = cv2.VideoCapture(vid_link)
-    ret = True
-    while ret:
-        ret, img = cap.read()  # read one frame from the 'capture' object; img is (H, W, C)
-        if ret:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            frames.append(img)
-    video = np.stack(frames, axis=0)  # dimensions (T, H, W, C)
-    lines = []
-    last_frame = -1
-    for i in range(len(video) - 1): # Compare frame to the next one, so one less range
-        frame = video[i]
-        next_frame = video[i+1]
-        SD = same_shot(frame, next_frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
-        if SD > threshold:
-            if (last_frame == -1 or i - last_frame > 10):
-                vis = np.concatenate((frame, next_frame), axis=1)
-                plt.imshow(vis)
-                plt.axis("off")
-                plt.show()
-                print(i, i+1)
-                time.sleep(1)
-            last_frame = i
+#     cap = cv2.VideoCapture(vid_link)
+#     ret = True
+#     while ret:
+#         ret, img = cap.read()  # read one frame from the 'capture' object; img is (H, W, C)
+#         if ret:
+#             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+#             frames.append(img)
+#     video = np.stack(frames, axis=0)  # dimensions (T, H, W, C)
+#     lines = []
+#     last_frame = -1
+#     for i in range(len(video) - 1): # Compare frame to the next one, so one less range
+#         frame = video[i]
+#         next_frame = video[i+1]
+#         SD = same_shot(frame, next_frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
+#         if SD > threshold:
+#             if (last_frame == -1 or i - last_frame > 10):
+#                 vis = np.concatenate((frame, next_frame), axis=1)
+#                 plt.imshow(vis)
+#                 plt.axis("off")
+#                 plt.show()
+#                 print(i, i+1)
+#                 time.sleep(1)
+#             last_frame = i
 
 #     with open('shot_changes_02.txt', 'a') as f:
 #         f.writelines(lines)
@@ -169,4 +186,4 @@ def shot_detection1(vid_link, threshold):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    shot_detection1("video_name.mp4", 0.02)
+    shot_detection("imdb_data.csv", 0.02)
