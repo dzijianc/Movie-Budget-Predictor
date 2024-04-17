@@ -6,6 +6,7 @@ import numpy.linalg
 from scipy.ndimage import correlate as corr
 from scipy.ndimage import gaussian_filter as gaus
 import pandas as pd
+import time
 
 LAST_FRAME_HIST = []
 #TODO: MAKE THRESHOLD 0.02 BUT REMOVE VERY CLOSE SCENE CHANGES
@@ -111,29 +112,32 @@ def shot_detection(csvfile, threshold):
     df = pd.DataFrame(data)
     df.to_csv("test2.csv", index=False, mode='w')
 
-# def shot_detection(vid_link, threshold):
-#     frames = []
+def shot_detection1(vid_link, threshold):
+    frames = []
 
-#     cap = cv2.VideoCapture(vid_link)
-#     ret = True
-#     while ret:
-#         ret, img = cap.read()  # read one frame from the 'capture' object; img is (H, W, C)
-#         if ret:
-#             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-#             frames.append(img)
-#     video = np.stack(frames, axis=0)  # dimensions (T, H, W, C)
-#     lines = []
-#     for i in range(len(video) - 1): # Compare frame to the next one, so one less range
-#         frame = video[i]
-#         next_frame = video[i+1]
-#         SD = same_shot(frame, next_frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
-#         if SD > threshold:
-#             vis = np.concatenate((frame, next_frame), axis=1)
-#             plt.imshow(vis)
-#             plt.axis("off")
-#             plt.show()
-#             print(i, i+1)
-#             lines.append('%d, %d\n' % (i, i+1))
+    cap = cv2.VideoCapture(vid_link)
+    ret = True
+    while ret:
+        ret, img = cap.read()  # read one frame from the 'capture' object; img is (H, W, C)
+        if ret:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            frames.append(img)
+    video = np.stack(frames, axis=0)  # dimensions (T, H, W, C)
+    lines = []
+    last_frame = -1
+    for i in range(len(video) - 1): # Compare frame to the next one, so one less range
+        frame = video[i]
+        next_frame = video[i+1]
+        SD = same_shot(frame, next_frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
+        if SD > threshold:
+            if (last_frame == -1 or i - last_frame > 10):
+                vis = np.concatenate((frame, next_frame), axis=1)
+                plt.imshow(vis)
+                plt.axis("off")
+                plt.show()
+                print(i, i+1)
+                time.sleep(1)
+            last_frame = i
 
 #     with open('shot_changes_02.txt', 'a') as f:
 #         f.writelines(lines)
@@ -165,4 +169,4 @@ def shot_detection(csvfile, threshold):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    shot_detection("test.csv", 0.02)
+    shot_detection1("video_name.mp4", 0.02)
