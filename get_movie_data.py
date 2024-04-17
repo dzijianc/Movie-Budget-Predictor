@@ -1,14 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 import json
-import cv2
 import random
 import csv
-from PIL import Image
-import numpy as np
-import matplotlib.pyplot as plt
-import urllib.request
-
 
 def get_genre_n_pages(genre, n=1):  # default is ==1 which means 50 entries
     headers = {
@@ -42,10 +36,19 @@ def fetch_movie_page(imdb_url):
     else:
         return None
 
+def get_name(movie_soup):
+    if movie_soup:
+        name_section = movie_soup.find('h1', {'data-testid': 'hero__pageTitle'})
+        name = name_section.text.strip()
+        print(name)
+        return name
+    else:
+        return "Invalid HTML content"
 
-def get_genre(parsed_html):
-    if parsed_html:
-        genre_section = parsed_html.find('div', {'data-testid': 'genres'})
+
+def get_genre(movie_soup):
+    if movie_soup:
+        genre_section = movie_soup.find('div', {'data-testid': 'genres'})
         if genre_section:
             genre_tags = genre_section.find_all('a')
             genres = [genre.text.strip() for genre in genre_tags]
@@ -59,7 +62,8 @@ def get_genre(parsed_html):
 def get_budget(movie_soup):
     try:
         budget_div = movie_soup.find('li', {"data-testid": "title-boxoffice-budget"})
-        budget = budget_div.text.split("$")[1].split(" ")[0]
+        budget = budget_div.text.split(" ")[0][7:]
+        print(budget)
         budget = budget.replace(",", "")
         return int(budget)
     except (AttributeError, ValueError):
@@ -91,51 +95,46 @@ def get_trailer_link(movie_soup):
     except (IndexError, ValueError):
         return None
 
-
-genres = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
+def get_movie_data(num_of_movies):
+    genres = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
           'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror',
-          'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Short',
+          'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi',
           'Sport', 'Thriller', 'War', 'Western']
+    titles = []
 
-def get_training_data(is_train, selected_genres):
-    if is_train:
-        save_to = 'imdb_data.csv'
-    else:
-        save_to = 'imdb_test_data.csv'
-    with open(save_to, 'w', newline='') as file:
+    with open('imdb_data.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        fields = ['genres', 'budget', 'link']
+        fields = ['name', 'genres', 'budget', 'link']
         writer.writerow(fields)
 
-        # Select movies from each genre
-        for i in selected_genres:
-            genre = genres[i]
+        # Select movies from any genre
+        for _ in range(num_of_movies):
+            genre = random.choice(genres)
             doc1 = get_genre_n_pages(genre=genre, n=2)
+            movie_i = list(range(0, 100))
             movie_tags = doc1.find_all('li', class_ = 'ipc-metadata-list-summary-item')
 
-            found_movie = 0
-            j = 10
-            while (found_movie < 2):
+            found_movie = False
+            while (not found_movie):
+                j = random.choice(movie_i)
                 imdb_url = 'https://www.imdb.com'
                 a_tag = movie_tags[j].find('a')
                 href_full = a_tag['href']
                 href_part = href_full.split('?')[0]
                 sample_url = imdb_url + href_part
                 page = fetch_movie_page(sample_url)
+                movie_title = get_name(page)
                 movie_genres = get_genre(page)
                 movie_budget = get_budget(page)
                 movie_trailer = get_trailer_link(page)
-                if movie_budget != None and movie_trailer != None:
-                    found_movie += 1
-                    writer.writerow([movie_genres, movie_budget, movie_trailer])
-                
-                j += 1
+                if movie_budget != None and movie_trailer != None and movie_title not in titles:
+                    found_movie = True
+                    titles.append(movie_title)
+                    writer.writerow([movie_title, movie_genres, movie_budget, movie_trailer])
     file.close()
 
 if __name__ == '__main__':
-    # Randomize selected genres
-    # selected_genres = random.sample([_ for _ in range(len(genres))], 10)
-    # train_genres = [10, 15, 12, 1, 19, 0, 3, 9, 7, 11]
-    # get_training_data(is_train=True, selected_genres=train_genres)
-    get_training_data(False, [1])
+    get_movie_data(num_of_movies=30)
+
+
     
