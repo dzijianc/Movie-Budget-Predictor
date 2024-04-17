@@ -97,11 +97,12 @@ genres = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
           'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Short',
           'Sport', 'Thriller', 'War', 'Western']
 
-# Randomize selected genres
-# selected_genres = random.sample([_ for _ in range(len(genres))], 10)
-selected_genres = [10, 15, 12, 1, 19, 0, 3, 9, 7, 11]
-def get_training_data():
-    with open('imdb_data.csv', 'w', newline='') as file:
+def get_training_data(is_train, selected_genres):
+    if is_train:
+        save_to = 'imdb_data.csv'
+    else:
+        save_to = 'imdb_test_data.csv'
+    with open(save_to, 'w', newline='') as file:
         writer = csv.writer(file)
         fields = ['genres', 'budget', 'link']
         writer.writerow(fields)
@@ -113,7 +114,7 @@ def get_training_data():
             movie_tags = doc1.find_all('li', class_ = 'ipc-metadata-list-summary-item')
 
             found_movie = 0
-            j = 0
+            j = 10
             while (found_movie < 2):
                 imdb_url = 'https://www.imdb.com'
                 a_tag = movie_tags[j].find('a')
@@ -132,4 +133,9 @@ def get_training_data():
     file.close()
 
 if __name__ == '__main__':
-    get_training_data()
+    # Randomize selected genres
+    # selected_genres = random.sample([_ for _ in range(len(genres))], 10)
+    # train_genres = [10, 15, 12, 1, 19, 0, 3, 9, 7, 11]
+    # get_training_data(is_train=True, selected_genres=train_genres)
+    get_training_data(False, [1])
+    

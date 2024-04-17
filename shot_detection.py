@@ -82,7 +82,7 @@ def get_genre_label(genres):
         ret[i] = 1
     return ret
 
-def shot_detection(csvfile, threshold):
+def shot_detection(csvfile, save_to, threshold):
     file = pd.read_csv(csvfile)
     movie_budgets = file['budget']
     movie_links = file['link']
@@ -117,7 +117,8 @@ def shot_detection(csvfile, threshold):
                     shot_end = j + 1
                     idx = np.random.randint(shot_start, shot_end)
                     selected_shot = frames[idx]
-                    filename = "selected_frames/movie%d_frame%d.jpg" % (i, idx)
+                    # filename = "selected_frames/movie%d_frame%d.jpg" % (i, idx)
+                    filename = "test_frames/movie%d_frame%d.jpg" % (i, idx)
                     cv2.imwrite(filename, selected_shot)
                     shot_start = shot_end
 
@@ -127,7 +128,7 @@ def shot_detection(csvfile, threshold):
                 last_frame = j
         
     df = pd.DataFrame(data)
-    df.to_csv("training_data.csv", index=False, mode='w')
+    df.to_csv(save_to, index=False, mode='w')
 
 # def shot_detection1(vid_link, threshold):
 #     frames = []
@@ -186,4 +187,5 @@ def shot_detection(csvfile, threshold):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    shot_detection("imdb_data.csv", 0.02)
+    # shot_detection("imdb_data.csv", "training_data.csv", 0.02)
+    shot_detection("imdb_test_data.csv", "test_set.csv", 0.02)
