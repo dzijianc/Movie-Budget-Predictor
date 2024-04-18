@@ -63,11 +63,11 @@ def get_genre(movie_soup):
 def get_budget(movie_soup):
     try:
         budget_div = movie_soup.find('li', {"data-testid": "title-boxoffice-budget"})
-        budget = budget_div.text.split(" ")[0][7:]
+        budget = budget_div.text.split("$")[1].split(" ")[0] # We only take budgets in $
         print(budget)
         budget = budget.replace(",", "")
         return int(budget)
-    except (AttributeError, ValueError):
+    except (IndexError, AttributeError, ValueError):
         return None
 
 
@@ -111,8 +111,8 @@ def get_movie_data(num_of_movies):
         # Select movies from any genre
         for _ in range(num_of_movies):
             genre = random.choice(genres)
-            doc1 = get_genre_n_pages(genre=genre, n=2)
-            movie_i = list(range(0, 100))
+            doc1 = get_genre_n_pages(genre=genre, n=3)
+            movie_i = list(range(0, 150))
             movie_tags = doc1.find_all('li', class_ = 'ipc-metadata-list-summary-item')
 
             found_movie = False
@@ -135,13 +135,16 @@ def get_movie_data(num_of_movies):
     file.close()
 
 if __name__ == '__main__':
-    get_movie_data(num_of_movies=30)
+    get_movie_data(num_of_movies=100)
 
     file = pd.read_csv('imdb_data.csv')
     train = file.sample(frac=0.9)
     test = file.loc[~file.index.isin(train.index)]
+    val = train.sample(frac=0.1)
+    train = train.loc[~train.index.isin(val.index)]
 
     train.to_csv("train_movies.csv", index=False)
+    val.to_csv("val_movies.csv", index=False)
     test.to_csv("test_movies.csv", index=False)
 
 
