@@ -1,13 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-import matlab
-import numpy.linalg
-from scipy.ndimage import correlate as corr
-from scipy.ndimage import gaussian_filter as gaus
 import pandas as pd
-import time
 import ast
+import random
 
 LAST_FRAME_HIST = []
 #TODO: MAKE THRESHOLD 0.02 BUT REMOVE VERY CLOSE SCENE CHANGES
@@ -92,8 +88,10 @@ def shot_detection(csvfile, save_to, image_dir, threshold):
             frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             frames.append(frame)
             success,image = vidcap.read()
+
         print("All movie frames read.")
 
+        shots = []
         last_frame = -1
         shot_start = 0
         for j in range(len(frames) - 1):
@@ -103,21 +101,30 @@ def shot_detection(csvfile, save_to, image_dir, threshold):
             if SD > threshold:
                 if (last_frame == -1 or j - last_frame > 10):
                     shot_end = j + 1
-                    idx = np.random.randint(shot_start, shot_end)
-                    selected_shot = frames[idx][...,::-1]
-                    filename = image_dir + "movie%d_frame%d.jpg" % (i, idx)
-                    cv2.imwrite(filename, selected_shot)
+                    shots.append((shot_start, shot_end))
                     shot_start = shot_end
-
-                    data['filename'].append(filename)
-                    data['budget'].append(budget)
-                    data['genres'].append(genres)
                 last_frame = j
+
+        # Select up to 15 shots at random per movie
+        if len(shots) > 15:
+            shots_sample = random.sample(shots, 15)
+        else:
+            shots_sample = random.sample(shots, len(shots))
+        for shot_range in shots_sample:
+            idx = np.random.randint(shot_range[0], shot_range[1])
+            selected_shot = frames[idx][...,::-1]
+            filename = image_dir + "movie%d_frame%d.jpg" % (i + 81, idx)
+            cv2.imwrite(filename, selected_shot)
+
+            data['filename'].append(filename)
+            data['budget'].append(budget)
+            data['genres'].append(genres)
         
     df = pd.DataFrame(data)
     df.to_csv(save_to, index=False, mode='w')
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    # shot_detection("train_movies.csv", "training_data.csv", "train_frames/", 0.02)
-    shot_detection("test_movies.csv", "test_set.csv", "test_frames/", 0.02)
+    shot_detection("train_movies.csv", "train_set_15_shots.csv", "train_frames_15_shots/", 0.02)
+    shot_detection("test_movies.csv", "test_set_15_shots.csv", "test_frames_15_shots/", 0.02)
+    shot_detection("val_movies.csv", "val_set.csv", "val_frames/", 0.02)
