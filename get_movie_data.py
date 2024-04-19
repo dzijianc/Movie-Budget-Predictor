@@ -135,7 +135,7 @@ def get_movie_data(num_of_movies):
     file.close()
 
 if __name__ == '__main__':
-    get_movie_data(num_of_movies=100)
+    get_movie_data(num_of_movies=140)
 
     file = pd.read_csv('imdb_data.csv')
     train = file.sample(frac=0.9)
