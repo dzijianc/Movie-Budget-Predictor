@@ -6,6 +6,18 @@ import csv
 import pandas as pd
 
 def get_genre_n_pages(genre, n=1):  # default is ==1 which means 50 entries
+    """Gets the HTML content of the search results page for a given genre 
+
+    Params
+    ------
+    genre (str): Genre to filter movies by
+    n (int): Number of pages to request of the given genre, 
+    where total number of movies will be (n * 50)
+
+    Returns
+    ------
+    doc (BeautifulSoup): HTML content of the search results page
+    """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
         "Accept-Encoding": "gzip, deflate",
@@ -15,7 +27,7 @@ def get_genre_n_pages(genre, n=1):  # default is ==1 which means 50 entries
     mid = '&count='
     num = str(n * 50)
     genre_url = start + genre + mid + num
-    print(genre_url)
+    # print(genre_url)
     response = requests.get(genre_url, headers=headers)
 
     if not response.ok:
@@ -28,6 +40,16 @@ def get_genre_n_pages(genre, n=1):  # default is ==1 which means 50 entries
 
 
 def fetch_movie_page(imdb_url):
+    """Gets the HTML content of the movie page from given URL
+
+    Params
+    ------
+    imdb_url (str): Link to the movie page on IMDb
+
+    Returns
+    ------
+    page (BeautifulSoup): HTML content of the movie page
+    """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
         }
@@ -38,6 +60,16 @@ def fetch_movie_page(imdb_url):
         return None
 
 def get_name(movie_soup):
+    """Gets the name of the movie from the movie page
+
+    Params
+    ------
+    movie_soup (BeautifulSoup): Content of the movie page
+
+    Returns
+    ------
+    name (str): Name of the movie
+    """
     if movie_soup:
         name_section = movie_soup.find('h1', {'data-testid': 'hero__pageTitle'})
         name = name_section.text.strip()
@@ -48,6 +80,16 @@ def get_name(movie_soup):
 
 
 def get_genre(movie_soup):
+    """Gets a list of genres (up to 3) from the movie page
+
+    Params
+    ------
+    movie_soup (BeautifulSoup): Content of the movie page
+
+    Returns
+    ------
+    genres (List): List of up to 3 genres from 22 possible genres
+    """
     if movie_soup:
         genre_section = movie_soup.find('div', {'data-testid': 'genres'})
         if genre_section:
@@ -61,10 +103,20 @@ def get_genre(movie_soup):
 
 
 def get_budget(movie_soup):
+    """Gets the budget from the movie page if provided in $ 
+
+    Params
+    ------
+    movie_soup (BeautifulSoup): Content of the movie page
+
+    Returns
+    ------
+    budget (int): Budget of the movie in $
+    """
     try:
         budget_div = movie_soup.find('li', {"data-testid": "title-boxoffice-budget"})
         budget = budget_div.text.split("$")[1].split(" ")[0] # We only take budgets in $
-        print(budget)
+        # print(budget)
         budget = budget.replace(",", "")
         return int(budget)
     except (IndexError, AttributeError, ValueError):
@@ -72,6 +124,16 @@ def get_budget(movie_soup):
 
 
 def get_trailer_link(movie_soup):
+    """Gets the link to an mp4 file containing the movie trailer
+
+    Params
+    ------
+    movie_soup (BeautifulSoup): Content of the movie page
+
+    Returns
+    ------
+    url (str): Link to mp4 file of the movie trailer
+    """
     try:
         official_trailer = movie_soup.find('a', {'aria-label': 'TrailerOfficial Trailer'})
         # Select the trailer at the top of the page
@@ -97,6 +159,17 @@ def get_trailer_link(movie_soup):
         return None
 
 def get_movie_data(num_of_movies):
+    """Gets the name, budget, genres, and trailer link for movies on IMDb
+
+    Params
+    ------
+    num_of_movies (int): Number of unique movies to scrape data from
+
+    Returns
+    ------
+    imdb_data.csv: File containing num_of_movies rows where each row 
+    contains the name, budget, genres, and trailer link for a movie
+    """
     genres = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
           'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror',
           'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi',

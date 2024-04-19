@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import cv2
 import pandas as pd
 import ast
@@ -8,6 +7,8 @@ import random
 LAST_FRAME_HIST = []
 #TODO: MAKE THRESHOLD 0.02 BUT REMOVE VERY CLOSE SCENE CHANGES
 def intensity_hist(img, size):
+    """Calculate the intesity histogram for a given image
+    """
     dist2 = [0] * size
     dist_index2 = (img // (255.1 / size)).astype(int).flatten()
     bc = np.bincount(dist_index2)
@@ -16,6 +17,8 @@ def intensity_hist(img, size):
 
 
 def same_shot(img_1, img_2, size):
+    """Compare the intensity histograms between two frames
+    """
     global LAST_FRAME_HIST
     if len(LAST_FRAME_HIST) == 0:
         img_1_g = np.dot(img_1[..., :3], [0.299, 0.587, 0.114])
@@ -43,6 +46,16 @@ def same_shot(img_1, img_2, size):
     return SD
 
 def get_budget_label(budget):
+    """Gets the label group for a given budget
+
+    Params
+    ------
+    budget (int): Budget of the movie
+
+    Returns
+    ------
+    label (int): The interval group the budget amount falls under
+    """
     if budget < 1_000_000:
         return 0
     elif 1_000_000 <= budget < 10_000_000:
@@ -55,6 +68,20 @@ def get_budget_label(budget):
         return 4
 
 def get_genre_label(genres):
+    """Gets a list denoting what genres the movie was tagged with 
+
+    Params
+    ------
+    genres (List): A list of genres where each item has to be one of the 22 defined genres:
+    'Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
+    'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror',
+    'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western'
+
+    Returns
+    ------
+    ret (List): 22-length list where each item is either 0 if the movie does not belong to that genre
+    or 1 if the movie does belong to that genre
+    """
     all_genres = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
                 'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror',
                 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi',
@@ -67,6 +94,25 @@ def get_genre_label(genres):
     return ret
 
 def shot_detection(csvfile, save_to, image_dir, threshold):
+    """Gets a selection of frames from given movies
+
+    Params
+    ------
+    csvfile (CSV): A csv file containing a list of movies where each row
+    has 4 pieces of data in the order: 
+    
+    name (str): name of the movie
+    genres (str): str representation of a List of genres for the movie 
+    budget (int): budget of the movie 
+    link (str): Link to an mp4 file containing the movie trailer on IMDb
+
+    save_to (str): The CSV file where each row contains the name of a movie frame image 
+    and the associated budget and genres of the movie
+
+    image_dir (str): The directory to save the selected frames in JPG of a movie
+
+    threshold (float): The threshold for shot detection
+    """
     file = pd.read_csv(csvfile)
     movie_budgets = file['budget']
     movie_links = file['link']
@@ -76,10 +122,8 @@ def shot_detection(csvfile, save_to, image_dir, threshold):
     for i in range(len(movie_links)):
         frames = []
         budget = get_budget_label(movie_budgets[i])
-        link = movie_links[i]
         genres = get_genre_label(ast.literal_eval(movie_genres[i]))
 
-        shot_end = 0
         # Get all the movie frames
         link = movie_links[i]
         vidcap = cv2.VideoCapture(link)
