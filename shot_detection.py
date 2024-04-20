@@ -5,9 +5,19 @@ import ast
 import random
 
 LAST_FRAME_HIST = []
-#TODO: MAKE THRESHOLD 0.02 BUT REMOVE VERY CLOSE SCENE CHANGES
 def intensity_hist(img, size):
-    """Calculate the intesity histogram for a given image
+    """Calculate the intesity histogram for a given greyscale image
+    Params
+    ------
+    img (np array): A grayscale image
+
+    size (int): The number of equally sized buckets to be created for the histogram (e.g. if size = 2, the histogram
+    will just have two buckets, one for intensity less than 50% and one for intensity of 50% or more)
+
+    Returns
+    ------
+    hist (array): The histogram for the image, represented as a 1 x size int array where hist[i] is the number of
+    pixels in img with that buckets intesnity range
     """
     dist2 = [0] * size
     dist_index2 = (img // (255.1 / size)).astype(int).flatten()
@@ -17,8 +27,28 @@ def intensity_hist(img, size):
 
 
 def same_shot(img_1, img_2, size):
-    """Compare the intensity histograms between two frames
+    """Generate the intensity histograms for two images and compute a score representing the difference in the two for
+    the sake of shot detection
+    Params
+    ------
+    img_1 (np array): A colored image, corresponding to a frame in a movie trailer
+
+    img_2 (np array): A colored image, corresponding to the next frame in the movie trailer
+
+    size (int): The number of equally sized buckets to be created for the histogram (e.g. if size = 2, the histogram
+    will just have two buckets, one for intensity less than 50% and one for intensity of 50% or more)
+
+    LAST_FRAME_HIST (list): A global variable storing the intensity histogram for img_2 from the last same_shot call.
+    If this list is not empty, then this is used as the histogram for img_1, since this function is only called in
+    same_shot, where we incremently compare each adjacent frame pairs for a trailer (i.e. first compares frame 0 and
+    frame 1, then frame 1 and frame 2, and so frame 1 is img_2 in the first call and img_1 in the second call)
+
+    Returns
+    ------
+    SD (int): A sum of the absolute differences of the intensity histograms for img_1 and img_2. This score is
+    normalized by dividing by size and the number of pixels in one of the images.
     """
+    # For the sake of performance,
     global LAST_FRAME_HIST
     if len(LAST_FRAME_HIST) == 0:
         img_1_g = np.dot(img_1[..., :3], [0.299, 0.587, 0.114])
@@ -31,18 +61,16 @@ def same_shot(img_1, img_2, size):
         for i in range(size):
             SD += abs(img_1_hist[i] - img_2_hist[i])
 
-        height, width = len(img_2_g), len(img_2_g[0])
-        SD = SD / (size * height * width)
-        LAST_FRAME_HIST = img_2_hist
     else:
         img_2_g = np.dot(img_2[..., :3], [0.299, 0.587, 0.114])
         img_2_hist = intensity_hist(img_2_g, size)
         SD = 0
         for i in range(size):
             SD += abs(LAST_FRAME_HIST[i] - img_2_hist[i])
-        height, width = len(img_2_g), len(img_2_g[0])
-        SD = SD / (size * height * width)
-        LAST_FRAME_HIST = img_2_hist
+
+    height, width = len(img_2_g), len(img_2_g[0])
+    SD = SD / (size * height * width)
+    LAST_FRAME_HIST = img_2_hist
     return SD
 
 def get_budget_label(budget):
@@ -94,7 +122,9 @@ def get_genre_label(genres):
     return ret
 
 def shot_detection(csvfile, save_to, image_dir, threshold):
-    """Gets a selection of frames from given movies
+    """Given a csvfile with a list of movies, detects shots from their trailer and selects one frame per shot for the
+    sake of generating model training data, saving each frame in the specified image directory as well as saving a csv
+    that ties each image saved to the movie it came from
 
     Params
     ------
@@ -106,13 +136,14 @@ def shot_detection(csvfile, save_to, image_dir, threshold):
     budget (int): budget of the movie 
     link (str): Link to an mp4 file containing the movie trailer on IMDb
 
-    save_to (str): The CSV file where each row contains the name of a movie frame image 
+    save_to (str): The CSV file created where each row contains the name of a saved movie frame
     and the associated budget and genres of the movie
 
     image_dir (str): The directory to save the selected frames in JPG of a movie
 
     threshold (float): The threshold for shot detection
     """
+    global LAST_FRAME_HIST
     file = pd.read_csv(csvfile)
     movie_budgets = file['budget']
     movie_links = file['link']
@@ -124,7 +155,7 @@ def shot_detection(csvfile, save_to, image_dir, threshold):
         budget = get_budget_label(movie_budgets[i])
         genres = get_genre_label(ast.literal_eval(movie_genres[i]))
 
-        # Get all the movie frames
+        # Get all the movie frames from trailer
         link = movie_links[i]
         vidcap = cv2.VideoCapture(link)
         success,image = vidcap.read()
@@ -135,13 +166,14 @@ def shot_detection(csvfile, save_to, image_dir, threshold):
 
         print("All movie frames read.")
 
+        LAST_FRAME_HIST = []
         shots = []
         last_frame = -1
         shot_start = 0
         for j in range(len(frames) - 1):
             cur_frame = frames[j]
             next_frame = frames[j + 1]
-            SD = same_shot(cur_frame, next_frame, 10) # TODO: PASS LAST ITERATIONS NEXT_FRAME CALC TO SD TO SAVE TIME
+            SD = same_shot(cur_frame, next_frame, 10)
             if SD > threshold:
                 if (last_frame == -1 or j - last_frame > 10):
                     shot_end = j + 1
